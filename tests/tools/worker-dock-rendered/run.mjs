@@ -465,27 +465,20 @@ await check('a paired chat command still stops', () =>
   })
 )
 
-await check('Show in dock again restores the acknowledged failure', () =>
-  scene('twentyOpen720', {}, async (page) => {
-    const row = page.locator('[data-worker-dock-row="dock:0"]')
-    await row.hover()
-    await row.locator('[data-worker-dock-action]').click()
-    await row.waitFor({ state: 'detached' })
-    await page.getByRole('button', { name: 'Show in dock again' }).click()
-    // The toast is outside the card, so pressing it folds the card; the row is back on reopening.
-    await page.waitForFunction(() => {
-      const chip = document.querySelector('[data-worker-dock-pill]')
-      return /(^|\D)20(\D|$)/.test(chip?.getAttribute('aria-label') ?? chip?.textContent ?? '')
-    })
-    if (!(await expanded(page))) {
-      await toggle(page).click()
-    }
-    await row.waitFor()
+await check('a failed row opens the worker at once and its hover names only the reason', () =>
+  scene('failedReport320', {}, async (page) => {
+    const open = page.locator('[data-worker-dock-row="dock:0"] [data-worker-dock-open]')
+    await open.hover()
+    const tip = page.locator('[data-worker-dock-reason]')
+    await tip.waitFor()
+    const text = (await tip.textContent()) ?? ''
+    assert(text.startsWith('Could not finish the release audit'), `tooltip reads "${text}"`)
+    assert(!/Summary|Typecheck|rerun/.test(text), 'tooltip shows more than the first sentence')
+    await open.click()
+    assert((await page.getByRole('dialog').count()) === 0, 'a dialog opened')
     assert(
-      (await events(page)).some(
-        (event) => event.action === 'restore' && event.id === 'ctx_fixture_0'
-      ),
-      'wrong settlement restored'
+      (await events(page)).some((event) => event.action === 'open' && event.id === 'dock:0'),
+      'no open sent'
     )
   })
 )

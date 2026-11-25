@@ -50,7 +50,19 @@ export function worker(index: number, state: WorkerDockRowView['state'], remote:
 const LONG_TITLE =
   'Fix-forward: bind the listing to the resolver so a renamed branch keeps its open pull request and review comments'
 
-export type Seed = { ask?: boolean; variety?: boolean; long?: boolean; reorder?: boolean }
+// A failed worker's final message as the host keeps it (its first 512 characters): a Markdown
+// report whose first prose sentence alone is long enough to wrap at narrow widths.
+const REPORT =
+  '## Summary\n\nCould not finish the release audit because the billing service checklist references a staging database that no longer exists, so every migration check timed out after 180 seconds. See [the release log](https://example.com/release-log) and **rerun** after fixing them.\n\n- Typecheck: 3 errors in `worker-dock-read.ts`\n- Lint: 1 warning\n- Migration dry run: timed out'
+
+export type Seed = {
+  ask?: boolean
+  variety?: boolean
+  long?: boolean
+  reorder?: boolean
+  /** Failed rows end with a full Markdown report instead of a one-line error. */
+  report?: boolean
+}
 export function seed(
   count: number,
   failed: number,
@@ -61,7 +73,10 @@ export function seed(
     // Reorder: the host lists newer queued workers first; the card puts the two older running first.
     const state =
       index < failed ? 'failed' : options.reorder && index < count - 2 ? 'coordinator' : 'running'
-    const row = worker(index, state, remote)
+    const row = {
+      ...worker(index, state, remote),
+      ...(options.report && index < failed ? { reason: REPORT } : {})
+    }
     const title = options.long && index % 2 === 0 ? `${LONG_TITLE} (${index + 1})` : row.title
     // The newest running worker asks a question: it outranks the failures in the pill and card.
     if (options.ask && index === failed) {
@@ -81,26 +96,4 @@ export function seed(
     }
     return { ...row, title }
   })
-}
-
-/** A failed row's saved result, as a host returns it: the worker's own Markdown report, a short
- *  raw error that still fills two lines of a narrow card, or the report as an older host sends it,
- *  with no report mark. */
-export function savedResult(row: WorkerDockRowView, kind: 'report' | 'raw' | 'legacy') {
-  const saved = {
-    id: `result:${row.dispatchId}`,
-    dispatchId: row.dispatchId,
-    name: row.name,
-    title: row.title,
-    outcome: 'failed' as const,
-    body:
-      kind !== 'raw'
-        ? 'Could not finish the audit. Two checks failed; see [the release log](https://example.com/release-log) and **rerun** after fixing them.\n\n- Typecheck: 3 errors\n- Lint: 1 warning'
-        : 'Typecheck failed: 3 errors in worker-dock-read.ts. Run pnpm typecheck locally to see them.',
-    at: row.changedAt,
-    settlement: row.settlement ?? `settled:${row.dispatchId}`,
-    acknowledged: false,
-    ownerActionsAvailable: true
-  }
-  return kind === 'legacy' ? saved : { ...saved, report: kind === 'report' }
 }
