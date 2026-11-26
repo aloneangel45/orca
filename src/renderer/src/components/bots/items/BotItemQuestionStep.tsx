@@ -5,7 +5,7 @@
 // its Enter holds the words, with their images, files and skills, as the answer of the line its
 // "Replying to" names, like a pick.
 import { LoaderCircle } from 'lucide-react'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useTranslate } from '@/i18n/use-translate'
 import { cn } from '@/lib/class-names'
@@ -18,7 +18,7 @@ import {
   type BotItemHeldAnswer
 } from '../../../../../shared/bots/bot-item-held-answers'
 import { BotItemMarkdown } from './BotItemMarkdown'
-import { BotItemFoldedLine } from './BotItemFoldedAnswer'
+import { BotItemFoldedLine, botItemShownAnswer } from './BotItemFoldedAnswer'
 import { BotItemQuickReplyRows } from './BotItemQuickReplyRows'
 import type { BotItemQuestionSteps, BotItemQuickReplyActions } from './use-bot-item-question-steps'
 
@@ -82,25 +82,66 @@ export function BotItemQuestionStep({
   const [reopened, setReopened] = useState<number | null>(null)
   const rows = useRef<HTMLDivElement | null>(null)
   const sendButton = useRef<HTMLButtonElement | null>(null)
-  // After a pick, focus moves on: to the next open line's first row, else to Send.
+  // After a pick, focus moves on: to the next open line's first control, else to Send.
   const moveFocus = useRef(false)
+  // Per line, words typed in Other… and not held yet: kept while another line shows.
+  const [drafts, setDrafts] = useState<Readonly<Record<number, string>>>({})
+  // Send pressed with words still in Other…: they are held first, then sent with the rest.
+  const sendAfterHold = useRef(false)
   const { picks, lines, sending } = steps
   const shown =
     reopened !== null && lines.includes(reopened) ? reopened : lines.find((index) => !picks[index])
+  const draft = shown === undefined ? '' : (drafts[shown] ?? '').trim()
   useLayoutEffect(() => {
     if (!moveFocus.current) {
       return
     }
     moveFocus.current = false
-    focusInView(rows.current?.querySelector('button') ?? sendButton.current)
+    focusInView(rows.current?.querySelector('button, input') ?? sendButton.current)
   })
-  const hold = (index: number, words: string): void => {
-    // Picking the line's own pick again would clear it; from Change, keep it and fold.
-    if (!botItemHeldAnswerIsReply(picks[index], words)) {
-      steps.pick(index, words)
+  useEffect(() => {
+    if (sendAfterHold.current) {
+      sendAfterHold.current = false
+      steps.send()
     }
-    setReopened(null)
+  }, [steps])
+  const setDraft = (index: number, words: string): void =>
+    setDrafts((previous) => ({ ...previous, [index]: words }))
+  const hold = (index: number, words: string): void => {
+    const again = botItemHeldAnswerIsReply(picks[index], words)
+    // A reply picked again clears it: the line stays open, unanswered.
+    steps.pick(index, words)
+    setDraft(index, '')
+    setReopened(again ? index : null)
+    moveFocus.current = !again
+  }
+  const change = (index: number, pick: BotItemHeldAnswer): void => {
+    const shownPick = botItemShownAnswer(pick)
+    const reply = shape.decisions[index]!.replies.some((r) =>
+      botItemHeldAnswerIsReply(pick, r.label)
+    )
+    // Typed words with images, files or skills go back into the box, which keeps them all.
+    if (
+      !reply &&
+      (pick.images.length > 0 || shownPick.files.length > 0 || pick.skills.length > 0)
+    ) {
+      ownWords(index, pick)
+      return
+    }
+    if (!reply) {
+      setDraft(index, pick.words)
+    }
+    setReopened(index)
     moveFocus.current = true
+  }
+  const send = (): void => {
+    if (shown !== undefined && draft) {
+      steps.pick(shown, draft)
+      setDraft(shown, '')
+      sendAfterHold.current = true
+      return
+    }
+    steps.send()
   }
   const ownWords = (index: number, words: BotItemHeldAnswer | string): void => {
     // Your words for this line, in the box: they take over its pick, and Enter answers it. A held
@@ -133,14 +174,7 @@ export function BotItemQuestionStep({
               <BotItemFoldedLine
                 question={decision.question}
                 answer={words}
-                onOpen={
-                  pick
-                    ? () => {
-                        setReopened(index)
-                        moveFocus.current = true
-                      }
-                    : undefined
-                }
+                onOpen={pick ? () => change(index, pick) : undefined}
               />
             ) : (
               // Answered by a comment that named no line: the comment shows as itself.
@@ -166,6 +200,8 @@ export function BotItemQuestionStep({
             }
             onOther={(words) => hold(shown, words)}
             current={picks[shown]?.words}
+            other={drafts[shown] ?? ''}
+            onOtherChange={(words) => setDraft(shown, words)}
           />
         </div>
       ) : null}
@@ -178,9 +214,9 @@ export function BotItemQuestionStep({
           type="button"
           size="sm"
           className="shrink-0"
-          disabled={!sending && picked === 0}
+          disabled={!sending && picked === 0 && !draft}
           aria-busy={sending || undefined}
-          onClick={() => steps.send()}
+          onClick={send}
         >
           {sending ? (
             <>

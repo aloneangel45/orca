@@ -4,7 +4,7 @@
 // While the item waits on a one-question ask, its context is cut to 2 lines over the bold question and its
 // reply rows; the item's status already says Needs you. Answered, a one-question ask folds to
 // "Answered <answer>", which opens the whole comment again.
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { ChevronRight, CornerDownRight } from 'lucide-react'
 import { useTranslate } from '@/i18n/use-translate'
 import { cn } from '@/lib/class-names'
@@ -116,12 +116,18 @@ export function BotItemCommentCard({
           ? steps !== null && steps.lines.length === 0
           : answeredCount === total || (entry.ended === 'skipped' && answeredCount > 0))
   const folded = done && !unfolded
+  const body = useRef<HTMLDivElement | null>(null)
+  const summary = useRef<HTMLButtonElement | null>(null)
+  // Folding hides what had focus (Send, a reply row, Other…): focus goes to the summary instead, so
+  // the pane's keys keep working.
+  useLayoutEffect(() => {
+    const active = document.activeElement
+    if (folded && (active === document.body || (active && body.current?.contains(active)))) {
+      summary.current?.focus({ preventScroll: true })
+    }
+  }, [folded])
   // The open ask with reply rows: its context cut short over them.
-  const rows =
-    waiting &&
-    quickReplies !== undefined &&
-    !done &&
-    (total === 1 ? shape.decisions[0]!.replies.length > 0 : steps !== null)
+  const rows = waiting && quickReplies !== undefined && !done && (total === 1 || steps !== null)
   // Its images show after the words, so the [Image #N] its send wrote go, as in chat's sent messages.
   // Its files show as links after them, so their `@path`s go from the words.
   const { words } = botItemCommentFiles(
@@ -189,8 +195,9 @@ export function BotItemCommentCard({
           <button
             type="button"
             aria-expanded={false}
-            title={total === 1 ? shape.decisions[0]!.question : undefined}
-            className="group/fold flex w-full min-w-0 items-center gap-1.5 rounded-sm pl-7 text-left text-[13px] leading-[19px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+            title={total === 1 ? `${shape.decisions[0]!.question}: ${lineWords[0]}` : undefined}
+            className="group/fold flex w-full min-w-0 items-center gap-1 rounded-sm text-left text-[13px] leading-[19px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+            ref={summary}
             onClick={() => setUnfolded(true)}
           >
             {total === 1 ? (
@@ -209,14 +216,16 @@ export function BotItemCommentCard({
             <ChevronRight className="size-3.5 shrink-0 opacity-0 group-hover/fold:opacity-100 group-focus-visible/fold:opacity-100" />
           </button>
         ) : null}
-        <div className={cn('pl-7', folded && 'hidden')}>
+        {/* An open ask's rows, and its folded line, start on the avatar's edge, as wide as the card allows. */}
+        <div ref={body} className={cn(rows ? undefined : 'pl-7', folded && 'hidden')}>
           {!words.trim() ? null : rows ? (
             // Cut to 2 lines: the question and its rows stay in view; Show more opens the rest.
             <BotItemClampedText
               text={words}
               clampClassName="line-clamp-2"
               quietToggle
-              className="mb-2.5 text-muted-foreground [&_*]:text-muted-foreground"
+              // On the card's edge: list markers stay inside it.
+              className="mb-2.5 text-muted-foreground [&_*]:text-muted-foreground [&_ol]:pl-4 [&_ul]:pl-4"
             />
           ) : waiting ? (
             // Whole while the item waits on its question: its choices read against all of it.

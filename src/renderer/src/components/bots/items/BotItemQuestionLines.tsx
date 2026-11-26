@@ -137,7 +137,7 @@ export function BotItemQuestionLines({
               >
                 <BotItemMarkdown text={decision.question} />
               </div>
-              {open && actions && decision.replies.length > 0 ? (
+              {open && actions ? (
                 <BotItemQuickReplyRows
                   question={decision.question}
                   quickReplies={decision.replies}

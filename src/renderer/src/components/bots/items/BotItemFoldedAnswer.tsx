@@ -61,16 +61,20 @@ export function BotItemFoldedLine({
   const { words, images, files } = botItemShownAnswer(answer)
   return (
     <div className="group/answer">
-      <div className="flex min-h-7 w-full min-w-0 items-start gap-2 py-1 text-[13px] leading-[19px]">
-        {/* On the key column: the check's box matches the reply rows' key width. */}
-        <span className="flex h-[19px] w-4.5 shrink-0 items-center">
+      <div className="flex min-h-7 w-full min-w-0 items-start gap-2.5 py-1 text-[13px] leading-[19px]">
+        {/* On the key column: the check's box matches the reply rows' key width and gap. */}
+        <span className="flex h-[19px] w-4.5 shrink-0 items-center justify-center">
           <Check aria-hidden className="size-3.5 text-theme-accent" />
         </span>
+        {/* The label keeps one line and gives way first, down to 30%; the answer keeps up to 70%, 2 lines. */}
         <span
           title={`${botItemQuestionLine(question)}: ${words}`}
-          className="line-clamp-2 min-w-0 flex-1 text-foreground [overflow-wrap:anywhere]"
+          className="flex min-w-0 flex-1 gap-1 text-foreground"
         >
-          <span className="text-muted-foreground">{label}:</span> {words}
+          <span className="min-w-[30%] truncate text-muted-foreground">{label}:</span>
+          <span className="line-clamp-2 max-w-[70%] shrink-0 [overflow-wrap:anywhere]">
+            {words}
+          </span>
         </span>
         {onOpen ? (
           <button
@@ -83,7 +87,8 @@ export function BotItemFoldedLine({
                 answer: words
               }
             )}
-            className="shrink-0 rounded-sm text-xs leading-[19px] text-muted-foreground opacity-0 outline-none group-hover/answer:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 [@media(hover:none)]:opacity-100"
+            // Takes no room until hover or focus, so a short answer keeps one line; always shown on touch.
+            className="sr-only -mr-1 shrink-0 rounded-sm px-1 text-xs leading-[19px] text-muted-foreground outline-none group-focus-within/answer:not-sr-only group-hover/answer:not-sr-only hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 [@media(hover:none)]:not-sr-only"
             onClick={onOpen}
           >
             {t('bots.items.ask.change', 'Change')}
@@ -91,7 +96,7 @@ export function BotItemFoldedLine({
         ) : null}
       </div>
       {/* Under the answer, past the check. */}
-      <BotItemHeldAnswerAttachments images={images} files={files} className="pl-[26px]" />
+      <BotItemHeldAnswerAttachments images={images} files={files} className="pl-7" />
     </div>
   )
 }

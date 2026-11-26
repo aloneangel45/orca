@@ -37,6 +37,8 @@ export function BotItemQuickReplyRows({
   onPick,
   onOther,
   current,
+  other: draft,
+  onOtherChange,
   rowsRef
 }: {
   question: string
@@ -46,10 +48,15 @@ export function BotItemQuickReplyRows({
   onOther: (words: string) => void
   /** The reply picked before, on a line reopened to change it. */
   current?: string
+  /** The Other… field's words, when the caller keeps them across its own changes. */
+  other?: string
+  onOtherChange?: (words: string) => void
   rowsRef?: React.RefObject<HTMLDivElement | null>
 }): React.JSX.Element {
   const t = useTranslate()
-  const [other, setOther] = useState('')
+  const [ownOther, setOwnOther] = useState('')
+  const other = draft ?? ownOther
+  const setOther = onOtherChange ?? setOwnOther
   const ownRows = useRef<HTMLDivElement | null>(null)
   const rows = rowsRef ?? ownRows
   const field = useRef<HTMLInputElement | null>(null)
@@ -131,14 +138,17 @@ export function BotItemQuickReplyRows({
           onClick={(event) => onPick(reply, event.altKey || event.shiftKey)}
         >
           <Key label={String(index + 1)} />
-          <span className="min-w-0 flex-1 truncate text-foreground">{reply.label}</span>
+          {/* In a narrow pane, Recommended moves under the label so the label keeps the row. */}
+          <span className="flex min-w-0 flex-1 gap-2.5 @max-[18rem]/item-pane:flex-col @max-[18rem]/item-pane:gap-0 @max-[18rem]/item-pane:py-1">
+            <span className="w-full min-w-0 flex-1 truncate text-foreground">{reply.label}</span>
+            {reply.recommended ? (
+              <span className="shrink-0 text-xs text-theme-accent">
+                {t('bots.items.ask.recommended', 'Recommended')}
+              </span>
+            ) : null}
+          </span>
           {reply.label === current ? (
             <Check aria-hidden className="size-3.5 shrink-0 text-theme-accent" />
-          ) : null}
-          {reply.recommended ? (
-            <span className="shrink-0 text-xs text-theme-accent">
-              {t('bots.items.ask.recommended', 'Recommended')}
-            </span>
           ) : null}
         </button>
       ))}
@@ -157,7 +167,11 @@ export function BotItemQuickReplyRows({
           ref={field}
           value={other}
           aria-label={t('bots.items.ask.otherLabel', 'Other answer')}
-          placeholder={t('bots.items.ask.other', 'Other…')}
+          placeholder={
+            replies.length === 0
+              ? t('bots.items.ask.yourAnswer', 'Your answer…')
+              : t('bots.items.ask.other', 'Other…')
+          }
           className="h-9 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
           onChange={(event) => setOther(event.target.value)}
           onKeyDown={(event) => {
