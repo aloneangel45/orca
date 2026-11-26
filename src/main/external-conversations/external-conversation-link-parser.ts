@@ -17,7 +17,8 @@ const ThreadStatusSchema = z.object({
       turnEndAt: z.number(),
       lastLineAt: z.number(),
       lastBotAt: z.number(),
-      dueStep: z.union([z.literal(0), z.literal(1), z.literal(2)])
+      dueStep: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+      lines: z.number().int().nonnegative().optional()
     })
     .optional(),
   pending: z
