@@ -86,8 +86,10 @@ export function BotItemQuestionStep({
   const moveFocus = useRef(false)
   // Per line, words typed in Other… and not held yet: kept while another line shows.
   const [drafts, setDrafts] = useState<Readonly<Record<number, string>>>({})
-  // Send pressed with words still in Other…: they are held first, then sent with the rest.
-  const sendAfterHold = useRef(false)
+  // What waits for a hold of Other… words to show in the picks: Send, or an answer into the box.
+  const afterHold = useRef<
+    { kind: 'send' } | { kind: 'restore'; index: number; pick: BotItemHeldAnswer } | null
+  >(null)
   const { picks, lines, sending } = steps
   const shown =
     reopened !== null && lines.includes(reopened) ? reopened : lines.find((index) => !picks[index])
@@ -137,8 +139,13 @@ export function BotItemQuestionStep({
       !reply &&
       (pick.images.length > 0 || shownPick.files.length > 0 || pick.skills.length > 0)
     ) {
-      // Its Other… words stay in place, not held: two writes in one click would race.
-      ownWords(index, pick)
+      // The shown Other… words are held first; the box takes the answer once that shows, as two
+      // writes in one click would race.
+      if (holdDraft()) {
+        afterHold.current = { kind: 'restore', index, pick }
+      } else {
+        ownWords(index, pick)
+      }
       return
     }
     holdDraft()
@@ -149,29 +156,13 @@ export function BotItemQuestionStep({
     moveFocus.current = true
   }
   const send = (): void => {
-    // Words left in another question's Other… go nowhere on their own: show that question first.
-    const hidden = lines.find(
-      (index) => index !== shown && !picks[index] && (drafts[index] ?? '').trim()
-    )
-    if (hidden !== undefined) {
-      setReopened(hidden)
-      moveFocus.current = true
-      return
-    }
     if (holdDraft()) {
       // Sent once the hold shows in the picks.
-      sendAfterHold.current = true
+      afterHold.current = { kind: 'send' }
       return
     }
     steps.send()
   }
-  const sendAfterRender = useEffectEvent(send)
-  useEffect(() => {
-    if (sendAfterHold.current) {
-      sendAfterHold.current = false
-      sendAfterRender()
-    }
-  }, [steps])
   const ownWords = (index: number, words: BotItemHeldAnswer | string): void => {
     // Your words for this line, in the box: they take over its pick, and Enter answers it. A held
     // answer stays held until the box's draft is saved, so a reload can't lose it.
@@ -184,6 +175,20 @@ export function BotItemQuestionStep({
     steps.bind(index)
     actions.edit(words)
   }
+  const runAfterHold = useEffectEvent(() => {
+    const next = afterHold.current
+    afterHold.current = null
+    if (next?.kind === 'send') {
+      steps.send()
+    } else if (next) {
+      ownWords(next.index, next.pick)
+    }
+  })
+  useEffect(() => {
+    if (afterHold.current) {
+      runAfterHold()
+    }
+  }, [steps])
   const total = shape.decisions.length
   const count = shape.decisions.filter((_, index) => picks[index] || answered[index]).length
   const picked = picks.filter(Boolean).length
@@ -228,13 +233,9 @@ export function BotItemQuestionStep({
               edit ? ownWords(shown, reply.label) : hold(shown, reply.label)
             }
             onOther={(words) => hold(shown, words)}
-            onOtherToBox={(words) => {
-              if (words) {
-                ownWords(shown, words)
-              } else {
-                steps.bind(shown)
-                actions.type()
-              }
+            onAnswerInBox={() => {
+              steps.bind(shown)
+              actions.type()
             }}
             current={picks[shown]?.words}
             other={drafts[shown] ?? ''}

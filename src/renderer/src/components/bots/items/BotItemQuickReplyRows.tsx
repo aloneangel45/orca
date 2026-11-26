@@ -36,7 +36,7 @@ export function BotItemQuickReplyRows({
   quickReplies,
   onPick,
   onOther,
-  onOtherToBox,
+  onAnswerInBox,
   current,
   other: draft,
   onOtherChange,
@@ -47,8 +47,9 @@ export function BotItemQuickReplyRows({
   /** `edit`: Alt- or Shift-click, the reply's words into the comment box to add to first. */
   onPick: (reply: BotItemQuickReply, edit: boolean) => void
   onOther: (words: string) => void
-  /** Shift- or Alt-Enter: the field's words (none to start) into the comment box, which can attach. */
-  onOtherToBox: (words: string) => void
+  /** Answer in the comment box instead, which can attach files: it names this question again. The
+   *  only way for a question with no replies; Shift- or Alt-Enter in Other… otherwise. */
+  onAnswerInBox: () => void
   /** The reply picked before, on a line reopened to change it. */
   current?: string
   /** The Other… field's words, when the caller keeps them across its own changes. */
@@ -102,7 +103,11 @@ export function BotItemQuickReplyRows({
     } else if (index === replies.length) {
       // Prevented, or the digit lands in the field it just focused.
       event.preventDefault()
-      field.current?.focus()
+      if (replies.length === 0) {
+        onAnswerInBox()
+      } else {
+        field.current?.focus()
+      }
     }
   })
   useEffect(() => {
@@ -155,57 +160,69 @@ export function BotItemQuickReplyRows({
           ) : null}
         </button>
       ))}
-      {/* Clicking anywhere on the row types into it, as on a field. */}
-      <div
-        className={cn(ROW, 'cursor-text focus-within:bg-foreground/5 hover:bg-foreground/5')}
-        onPointerDown={(event) => {
-          if (event.target !== field.current) {
-            event.preventDefault()
-            field.current?.focus()
-          }
-        }}
-      >
-        <Key label={String(otherKey)} />
-        <input
-          ref={field}
-          value={other}
-          aria-label={t('bots.items.ask.otherLabel', 'Other answer')}
-          title={t(
-            'bots.items.ask.otherToBox',
-            'Shift+Enter writes it in the comment box, to attach files'
+      {replies.length === 0 ? (
+        // No replies: the comment box is the answer field, as it takes files too.
+        <button
+          type="button"
+          className={cn(
+            ROW,
+            'text-muted-foreground outline-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring/50'
           )}
-          placeholder={
-            replies.length === 0
-              ? t('bots.items.ask.yourAnswer', 'Your answer…')
-              : t('bots.items.ask.other', 'Other…')
-          }
-          className="h-9 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
-          onChange={(event) => setOther(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' || isImeOwnedKeyboardEvent(event)) {
-              return
-            }
-            event.preventDefault()
-            if (event.shiftKey || event.altKey) {
-              const words = other.trim()
-              setOther('')
-              onOtherToBox(words)
-            } else {
-              sendOther()
+          onClick={onAnswerInBox}
+        >
+          <Key label={String(otherKey)} />
+          <span className="min-w-0 flex-1 truncate">
+            {t('bots.items.ask.yourAnswer', 'Your answer…')}
+          </span>
+        </button>
+      ) : (
+        // Clicking anywhere on the row types into it, as on a field.
+        <div
+          className={cn(ROW, 'cursor-text focus-within:bg-foreground/5 hover:bg-foreground/5')}
+          onPointerDown={(event) => {
+            if (event.target !== field.current) {
+              event.preventDefault()
+              field.current?.focus()
             }
           }}
-        />
-        {other.trim() ? (
-          <button
-            type="button"
-            aria-label={t('bots.items.ask.sendOther', 'Send answer')}
-            className="shrink-0 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-            onClick={sendOther}
-          >
-            <Key label="↵" />
-          </button>
-        ) : null}
-      </div>
+        >
+          <Key label={String(otherKey)} />
+          <input
+            ref={field}
+            value={other}
+            aria-label={t('bots.items.ask.otherLabel', 'Other answer')}
+            title={t(
+              'bots.items.ask.otherToBox',
+              'Shift+Enter answers in the comment box, to attach files'
+            )}
+            placeholder={t('bots.items.ask.other', 'Other…')}
+            className="h-9 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+            onChange={(event) => setOther(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || isImeOwnedKeyboardEvent(event)) {
+                return
+              }
+              event.preventDefault()
+              if (event.shiftKey || event.altKey) {
+                // The box keeps its own draft; these words stay here.
+                onAnswerInBox()
+              } else {
+                sendOther()
+              }
+            }}
+          />
+          {other.trim() ? (
+            <button
+              type="button"
+              aria-label={t('bots.items.ask.sendOther', 'Send answer')}
+              className="shrink-0 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              onClick={sendOther}
+            >
+              <Key label="↵" />
+            </button>
+          ) : null}
+        </div>
+      )}
     </div>
   )
 }

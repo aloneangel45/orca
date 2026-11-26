@@ -150,7 +150,7 @@ export function BotItemQuestionLines({
                     }
                   }}
                   onOther={actions.send}
-                  onOtherToBox={(words) => (words ? actions.edit(words) : actions.type())}
+                  onAnswerInBox={actions.type}
                 />
               ) : null}
             </div>

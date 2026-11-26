@@ -30683,7 +30683,7 @@
         "other": "Other…",
         "yourAnswer": "Your answer…",
         "otherLabel": "Other answer",
-        "otherToBox": "Shift+Enter writes it in the comment box, to attach files",
+        "otherToBox": "Shift+Enter answers in the comment box, to attach files",
         "sendOther": "Send answer",
         "answered": "Answered",
         "answeredCount": "{{count}} of {{total}} answered",
