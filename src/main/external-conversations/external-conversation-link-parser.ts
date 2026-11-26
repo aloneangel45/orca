@@ -7,6 +7,29 @@ import {
   type ExternalConversationLink
 } from '../../shared/connectors/external-conversation-link'
 
+const ThreadStatusSchema = z.object({
+  seq: z.number().int().nonnegative(),
+  day: z.string().max(10),
+  dayCount: z.number().int().nonnegative(),
+  armed: z
+    .object({
+      at: z.number(),
+      turnEndAt: z.number(),
+      lastLineAt: z.number(),
+      lastBotAt: z.number(),
+      dueStep: z.union([z.literal(0), z.literal(1), z.literal(2)])
+    })
+    .optional(),
+  pending: z
+    .object({
+      replyId: z.string().min(1).max(128),
+      text: z.string().max(500),
+      at: z.number(),
+      stop: z.boolean()
+    })
+    .optional()
+})
+
 // A terminal pane's link from an older Orca has no session and is skipped.
 const ExternalConversationLinkSchema = z.object({
   source: z.enum(CONNECTOR_SOURCES),
@@ -50,6 +73,7 @@ const ExternalConversationLinkSchema = z.object({
     .catch(undefined),
   muted: z.literal(true).optional().catch(undefined),
   leaveLine: z.number().optional().catch(undefined),
+  threadStatus: ThreadStatusSchema.optional().catch(undefined),
   createdAt: z.number()
 })
 
