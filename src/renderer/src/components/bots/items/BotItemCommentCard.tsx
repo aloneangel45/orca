@@ -122,11 +122,18 @@ export function BotItemCommentCard({
   const article = useRef<HTMLDivElement | null>(null)
   // Folding hides what had focus (Send, a reply row, Other…): focus goes to the summary instead, so
   // the pane's keys keep working.
+  const wasFolded = useRef(folded)
   useLayoutEffect(() => {
     const active = document.activeElement
-    if (folded && (active === document.body || (active && body.current?.contains(active)))) {
+    // Only when it folds here: a card already folded as the item opens never takes focus.
+    if (
+      folded &&
+      !wasFolded.current &&
+      (active === document.body || (active && body.current?.contains(active)))
+    ) {
       summary.current?.focus({ preventScroll: true })
     }
+    wasFolded.current = folded
   }, [folded])
   // The open ask with reply rows: its context cut short over them.
   const rows = waiting && quickReplies !== undefined && !done && (total === 1 || steps !== null)
@@ -199,7 +206,7 @@ export function BotItemCommentCard({
             type="button"
             aria-expanded={false}
             title={total === 1 ? `${shape.decisions[0]!.question}: ${lineWords[0]}` : undefined}
-            className="group/fold flex w-full min-w-0 items-center gap-1 rounded-sm text-left text-[13px] leading-[19px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="group/fold -mx-1 flex w-[calc(100%+var(--spacing)*2)] min-w-0 items-center gap-1 rounded-sm px-1 text-left text-[13px] leading-[19px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
             ref={summary}
             onClick={() => {
               setUnfolded(true)

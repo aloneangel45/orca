@@ -66,15 +66,11 @@ export function BotItemFoldedLine({
         <span className="flex h-[19px] w-4.5 shrink-0 items-center justify-center">
           <Check aria-hidden className="size-3.5 text-theme-accent" />
         </span>
-        {/* The label keeps one line and gives way first, down to 30%; the answer keeps up to 70%, 2 lines. */}
         <span
           title={`${botItemQuestionLine(question)}: ${words}`}
-          className="flex min-w-0 flex-1 gap-1 text-foreground"
+          className="line-clamp-2 min-w-0 flex-1 text-foreground [overflow-wrap:anywhere]"
         >
-          <span className="min-w-[30%] truncate text-muted-foreground">{label}:</span>
-          <span className="line-clamp-2 max-w-[70%] shrink-0 [overflow-wrap:anywhere]">
-            {words}
-          </span>
+          <span className="text-muted-foreground">{label}:</span> {words}
         </span>
         {onOpen ? (
           <button

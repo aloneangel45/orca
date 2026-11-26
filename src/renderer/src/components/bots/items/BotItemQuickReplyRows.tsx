@@ -139,7 +139,7 @@ export function BotItemQuickReplyRows({
         >
           <Key label={String(index + 1)} />
           {/* In a narrow pane, Recommended moves under the label so the label keeps the row. */}
-          <span className="flex min-w-0 flex-1 gap-2.5 @max-[18rem]/item-pane:flex-col @max-[18rem]/item-pane:gap-0 @max-[18rem]/item-pane:py-1">
+          <span className="flex min-w-0 flex-1 items-baseline gap-2.5 @max-[18rem]/item-pane:flex-col @max-[18rem]/item-pane:gap-0 @max-[18rem]/item-pane:py-1">
             <span className="w-full min-w-0 flex-1 truncate text-foreground">{reply.label}</span>
             {reply.recommended ? (
               <span className="shrink-0 text-xs text-theme-accent">
