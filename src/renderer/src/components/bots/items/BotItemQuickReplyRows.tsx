@@ -36,6 +36,7 @@ export function BotItemQuickReplyRows({
   quickReplies,
   onPick,
   onOther,
+  onOtherToBox,
   current,
   other: draft,
   onOtherChange,
@@ -46,6 +47,8 @@ export function BotItemQuickReplyRows({
   /** `edit`: Alt- or Shift-click, the reply's words into the comment box to add to first. */
   onPick: (reply: BotItemQuickReply, edit: boolean) => void
   onOther: (words: string) => void
+  /** Shift- or Alt-Enter: the field's words (none to start) into the comment box, which can attach. */
+  onOtherToBox: (words: string) => void
   /** The reply picked before, on a line reopened to change it. */
   current?: string
   /** The Other… field's words, when the caller keeps them across its own changes. */
@@ -167,6 +170,10 @@ export function BotItemQuickReplyRows({
           ref={field}
           value={other}
           aria-label={t('bots.items.ask.otherLabel', 'Other answer')}
+          title={t(
+            'bots.items.ask.otherToBox',
+            'Shift+Enter writes it in the comment box, to attach files'
+          )}
           placeholder={
             replies.length === 0
               ? t('bots.items.ask.yourAnswer', 'Your answer…')
@@ -175,8 +182,15 @@ export function BotItemQuickReplyRows({
           className="h-9 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
           onChange={(event) => setOther(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && !isImeOwnedKeyboardEvent(event)) {
-              event.preventDefault()
+            if (event.key !== 'Enter' || isImeOwnedKeyboardEvent(event)) {
+              return
+            }
+            event.preventDefault()
+            if (event.shiftKey || event.altKey) {
+              const words = other.trim()
+              setOther('')
+              onOtherToBox(words)
+            } else {
               sendOther()
             }
           }}

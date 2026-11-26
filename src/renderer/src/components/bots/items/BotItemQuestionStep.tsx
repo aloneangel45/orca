@@ -5,7 +5,7 @@
 // its Enter holds the words, with their images, files and skills, as the answer of the line its
 // "Replying to" names, like a pick.
 import { LoaderCircle } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useTranslate } from '@/i18n/use-translate'
 import { cn } from '@/lib/class-names'
@@ -99,12 +99,6 @@ export function BotItemQuestionStep({
     moveFocus.current = false
     focusInView(rows.current?.querySelector('button, input') ?? sendButton.current)
   })
-  useEffect(() => {
-    if (sendAfterHold.current) {
-      sendAfterHold.current = false
-      steps.send()
-    }
-  }, [steps])
   const setDraft = (index: number, words: string): void =>
     setDrafts((previous) => ({ ...previous, [index]: words }))
   const isReply = (index: number, words: string): boolean =>
@@ -155,6 +149,15 @@ export function BotItemQuestionStep({
     moveFocus.current = true
   }
   const send = (): void => {
+    // Words left in another question's Other… go nowhere on their own: show that question first.
+    const hidden = lines.find(
+      (index) => index !== shown && !picks[index] && (drafts[index] ?? '').trim()
+    )
+    if (hidden !== undefined) {
+      setReopened(hidden)
+      moveFocus.current = true
+      return
+    }
     if (holdDraft()) {
       // Sent once the hold shows in the picks.
       sendAfterHold.current = true
@@ -162,6 +165,13 @@ export function BotItemQuestionStep({
     }
     steps.send()
   }
+  const sendAfterRender = useEffectEvent(send)
+  useEffect(() => {
+    if (sendAfterHold.current) {
+      sendAfterHold.current = false
+      sendAfterRender()
+    }
+  }, [steps])
   const ownWords = (index: number, words: BotItemHeldAnswer | string): void => {
     // Your words for this line, in the box: they take over its pick, and Enter answers it. A held
     // answer stays held until the box's draft is saved, so a reload can't lose it.
@@ -218,6 +228,14 @@ export function BotItemQuestionStep({
               edit ? ownWords(shown, reply.label) : hold(shown, reply.label)
             }
             onOther={(words) => hold(shown, words)}
+            onOtherToBox={(words) => {
+              if (words) {
+                ownWords(shown, words)
+              } else {
+                steps.bind(shown)
+                actions.type()
+              }
+            }}
             current={picks[shown]?.words}
             other={drafts[shown] ?? ''}
             onOtherChange={(words) => setDraft(shown, words)}
