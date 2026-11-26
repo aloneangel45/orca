@@ -1,8 +1,6 @@
 import { useIntlLocale, useTranslate } from '@/i18n/use-translate'
 import { workerDockKindLabel, workerDockStateLabel } from './worker-dock-labels'
 import { memo } from 'react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { workerDockReasonLine } from './worker-dock-reason-line'
 import { cn } from '@/lib/class-names'
 import { WorkerDockRowAction } from './WorkerDockRowAction'
 import { WorkerDockGlyph } from './WorkerDockGlyph'
@@ -80,73 +78,47 @@ export const WorkerDockRow = memo(function WorkerDockRow({
           'Stop or clear this from the computer it runs on'
         )
       : ''
-  const failed = row?.state === 'failed' || row?.state === 'unexpected'
-  // The final message can be a whole report: the row only ever names its first sentence.
-  const reason =
-    row && (failed || row.state === 'stopping') && row.reason
-      ? workerDockReasonLine(row.reason)
-      : ''
-  const label = [mixed && row ? workerDockKindLabel(t, row.kind) : '', title, state, reason, remote]
+  const label = [mixed && row ? workerDockKindLabel(t, row.kind) : '', title, state, remote]
     .filter(Boolean)
     .join(' · ')
-  // A failed row's hover is its reason alone; the full report lives in the worker it opens.
-  const reasonTip = failed ? reason : ''
-  const tooltip =
-    row && !reasonTip
-      ? [row.name, title === row.title ? '' : row.title, title, state, reason, remote]
-          .filter(Boolean)
-          .join(' · ')
-      : undefined
-  const open = (
-    <button
-      type="button"
-      data-worker-dock-open={rowId}
-      aria-label={label}
-      aria-disabled={row ? undefined : true}
-      title={tooltip}
-      className="flex min-w-0 flex-1 items-start gap-2 py-0.5 pl-2 text-left text-sm after:absolute after:inset-0 after:rounded-md focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring aria-disabled:text-muted-foreground"
-      onClick={(event) => {
-        if (row) {
-          onOpen(row, event.currentTarget)
-        }
-      }}
-    >
-      <span className="flex h-5 shrink-0 items-center">
-        <WorkerDockGlyph glyph={row ? workerDockGlyph(row) : 'queued'} />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="line-clamp-3 break-words">{title}</span>
-        {row && (row.model || row.changedAt !== null) ? (
-          <span className="truncate text-xs text-muted-foreground">
-            {row.model}
-            {row.model && row.changedAt !== null ? ' · ' : null}
-            <Age at={row.changedAt} visible={visible} />
-          </span>
-        ) : null}
-      </span>
-    </button>
-  )
+  const tooltip = row
+    ? [row.name, title === row.title ? '' : row.title, title, state, remote]
+        .filter(Boolean)
+        .join(' · ')
+    : undefined
   return (
     <div
       data-worker-dock-row={rowId}
       data-worker-dock-state={row?.state ?? 'loading'}
       className="group/worker relative flex min-w-0 rounded-md pr-2 text-foreground hover:bg-accent has-focus-visible:bg-accent"
     >
-      {/* Always wrapped, so a row that fails while focused keeps its button and focus. */}
-      <Tooltip open={reasonTip ? undefined : false}>
-        <TooltipTrigger asChild>{open}</TooltipTrigger>
-        {reasonTip ? (
-          <TooltipContent
-            side="top"
-            align="start"
-            sideOffset={4}
-            data-worker-dock-reason=""
-            className="max-w-[min(20rem,calc(100vw-2rem))]"
-          >
-            <span className="line-clamp-2 break-words">{reasonTip}</span>
-          </TooltipContent>
-        ) : null}
-      </Tooltip>
+      <button
+        type="button"
+        data-worker-dock-open={rowId}
+        aria-label={label}
+        aria-disabled={row ? undefined : true}
+        title={tooltip}
+        className="flex min-w-0 flex-1 items-start gap-2 py-0.5 pl-2 text-left text-sm after:absolute after:inset-0 after:rounded-md focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring aria-disabled:text-muted-foreground"
+        onClick={(event) => {
+          if (row) {
+            onOpen(row, event.currentTarget)
+          }
+        }}
+      >
+        <span className="flex h-5 shrink-0 items-center">
+          <WorkerDockGlyph glyph={row ? workerDockGlyph(row) : 'queued'} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="line-clamp-3 break-words">{title}</span>
+          {row && (row.model || row.changedAt !== null) ? (
+            <span className="truncate text-xs text-muted-foreground">
+              {row.model}
+              {row.model && row.changedAt !== null ? ' · ' : null}
+              <Age at={row.changedAt} visible={visible} />
+            </span>
+          ) : null}
+        </span>
+      </button>
       {/* Over the row's end on hover or focus, so at rest the title has the row's whole width. At rest it
           is transparent and takes no presses (a press there opens the row), but stays in the
           accessibility tree and the tab order; focus inside the row shows it. */}

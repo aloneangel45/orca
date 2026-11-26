@@ -4,7 +4,7 @@ import { useNativeChatPinnedWorkerApprovals } from '../../worker-approvals/nativ
 import { useWorkerDockFeed } from './dock/worker-dock-feed'
 import type { WorkerDockRowView } from './dock/WorkerDockRow'
 import type { WorkerDockSnapshot } from '../../../../../../shared/orchestration/dock/worker-dock'
-import { openOrchestrationCrewAgent } from '@/lib/agent-session/open/open-agent-message-sender'
+import { openWorkerDockRow } from './dock/worker-dock-open'
 import { useWorkerDockOwnerActions } from './dock/use-worker-dock-owner-actions'
 import { WorkerDockFeedLossesContext, workerDockStopBlock } from './dock/worker-dock-stop-check'
 import {
@@ -163,18 +163,7 @@ export function NativeChatStructuredSessionStatus(props: {
     opener: HTMLElement
   } | null>(null)
   const workerOpen = useCallback(
-    (row: WorkerDockRowView) =>
-      void openOrchestrationCrewAgent(
-        {
-          partyKey: row.id,
-          role: 'worker',
-          label: row.name,
-          agentKind: 'unknown',
-          status: row.state,
-          openTarget: { kind: 'dispatch', address: `dispatch:${row.dispatchId}` }
-        },
-        target
-      ),
+    (row: WorkerDockRowView) => openWorkerDockRow(row, target),
     [target]
   )
   // Read live when a Stop or its Retry is sent, never from rows a held press kept on screen.

@@ -465,22 +465,28 @@ await check('a paired chat command still stops', () =>
   })
 )
 
-await check('a failed row opens the worker at once and its hover names only the reason', () =>
-  scene('failedReport320', {}, async (page) => {
-    const open = page.locator('[data-worker-dock-row="dock:0"] [data-worker-dock-open]')
-    await open.hover()
-    const tip = page.locator('[data-worker-dock-reason]')
-    await tip.waitFor()
-    const text = (await tip.textContent()) ?? ''
-    assert(text.startsWith('Could not finish the release audit'), `tooltip reads "${text}"`)
-    assert(!/Summary|Typecheck|rerun/.test(text), 'tooltip shows more than the first sentence')
-    await open.click()
-    assert((await page.getByRole('dialog').count()) === 0, 'a dialog opened')
-    assert(
-      (await events(page)).some((event) => event.action === 'open' && event.id === 'dock:0'),
-      'no open sent'
-    )
-  })
+await check(
+  'a failed row opens the worker at once, by click, Enter or Space, with no tooltip',
+  () =>
+    scene('failedLong320', {}, async (page) => {
+      const open = page.locator('[data-worker-dock-row="dock:0"] [data-worker-dock-open]')
+      await open.hover()
+      await page.waitForTimeout(900)
+      assert(
+        (await page.locator('[data-slot="tooltip-content"]').count()) === 0,
+        'a tooltip opened'
+      )
+      await open.click()
+      await open.focus()
+      await page.keyboard.press('Enter')
+      await page.keyboard.press('Space')
+      assert((await page.getByRole('dialog').count()) === 0, 'a dialog opened')
+      const opened = (await events(page)).filter((event) => event.action === 'open')
+      assert(
+        opened.length === 3 && opened.every((event) => event.id === 'dock:0'),
+        `opens sent: ${JSON.stringify(opened)}`
+      )
+    })
 )
 
 await runLoadingAndLayerChecks({ check, scene, assert, shot })

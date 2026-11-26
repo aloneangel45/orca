@@ -12,6 +12,8 @@ import { NativeChatBackgroundTasksStatus } from '../NativeChatBackgroundTasksSta
 import type { WorkerDockRowView } from './WorkerDockRow'
 import { SOURCE, seed, worker, type Seed } from './worker-dock-seed-fixture'
 import { WorkerDockProviderDetailsDialog } from './WorkerDockProviderDetailsDialog'
+import { openWorkerDockRow } from './worker-dock-open'
+import { Toaster } from '@/components/ui/sonner'
 
 // A live strip for the rendered interaction suite (tests/tools/worker-dock-rendered): it keeps its
 // own open state and answers Stop, Clear and Clear all the way the host does, a moment later.
@@ -50,6 +52,7 @@ function Harness({
   lazy = 0,
   failReads = 0,
   details = false,
+  realOpen = false,
   ...options
 }: {
   count: number
@@ -67,6 +70,8 @@ function Harness({
   failReads?: number
   /** Opening a command shows its details dialog, as a chat does. */
   details?: boolean
+  /** A row click goes through the real worker open, whose failure toast shows. */
+  realOpen?: boolean
 } & Seed) {
   const [rows, setRows] = useState(() => seed(count, failed, remote, options))
   const [detailed, setDetailed] = useState(() => new Set(rows.slice(0, lazy).map((row) => row.id)))
@@ -199,10 +204,16 @@ function Harness({
         loadWindow={lazy ? loadWindow : undefined}
         onShowProviderDetails={details ? (row, opener) => setShown({ row, opener }) : undefined}
         workerIdentities={identities}
-        onOpenWorker={(row) => record({ action: 'open', id: row.id })}
+        onOpenWorker={(row) => {
+          record({ action: 'open', id: row.id })
+          if (realOpen) {
+            openWorkerDockRow(row, LOCAL)
+          }
+        }}
         onWorkerAction={owner.action}
         onClearAll={owner.clearAll}
       />
+      {realOpen ? <Toaster toastOptions={{ className: 'font-sans text-sm' }} /> : null}
       {shown ? (
         <WorkerDockProviderDetailsDialog
           row={shown.row}
@@ -247,16 +258,20 @@ export const lastFailedDetails720 = defineFixture({
   width: 720,
   render: () => workerDockFixturePane(<Harness count={1} failed={1} open />)
 })
-// A failed worker whose final message is a full Markdown report: hovering the row shows only its
-// first sentence; a long title and a narrow pane check the row and the tooltip both wrap cleanly.
+// Failed rows with long titles, to check the row wraps cleanly at narrow widths.
 function failedRow(width: number) {
   return defineFixture({
     width,
-    render: () => workerDockFixturePane(<Harness count={3} failed={2} report long open />)
+    render: () => workerDockFixturePane(<Harness count={3} failed={2} long open />)
   })
 }
-export const failedReport720 = failedRow(720)
-export const failedReport320 = failedRow(320)
+export const failedLong720 = failedRow(720)
+export const failedLong320 = failedRow(320)
+// A failed row whose worker can't be opened here: the click shows the open-failure toast.
+export const failedOpenToast720 = defineFixture({
+  width: 720,
+  render: () => workerDockFixturePane(<Harness count={1} failed={1} realOpen open />)
+})
 // The first two detail reads fail; a later key press recovers the last row.
 export const lazyFailingOpen720 = defineFixture({
   width: 720,
