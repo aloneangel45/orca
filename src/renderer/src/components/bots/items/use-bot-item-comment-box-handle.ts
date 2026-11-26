@@ -21,8 +21,9 @@ export type BotItemCommentBoxHandle = ReturnType<typeof composerQuoteTarget> & {
   /** Put a held answer back after the box's words, its images and skills too, as chat hands back a
    *  message it didn't send; `plain` as for `fill`. True once the box's draft is saved. */
   restore: (answer: BotItemHeldAnswer, plain?: boolean) => boolean
-  /** Focus the box to answer the waiting question in your own words: it glows once, naming it. */
-  answer: () => void
+  /** Focus the box to answer the waiting question in your own words: it glows once, naming it.
+   *  `words` go after the box's own, which stay. */
+  answer: (words?: string) => void
 }
 
 /** The box's handle; returns its caret-to-end, which a click in its padding uses too. */
@@ -63,8 +64,15 @@ export function useBotItemCommentBoxHandle(
     focusEnd: caretToEnd,
     ...composerQuoteTarget(composer),
     type: (typed) => void composer.current?.insertTypedText(typed),
-    answer: () => {
-      reply.show()
+    answer: (words) => {
+      if (words) {
+        const current = input()?.value.trim() ?? readNativeChatComposerDraft(scopeKey).text.trim()
+        const next = current ? `${current} ${words} ` : `${words} `
+        setDraft(next)
+        show(next, false)
+      } else {
+        reply.show()
+      }
       composer.current?.focus({ caretAtEnd: true, glow: true })
     },
     fill: (text, plain) => {

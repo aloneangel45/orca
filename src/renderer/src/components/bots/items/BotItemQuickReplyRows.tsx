@@ -49,7 +49,7 @@ export function BotItemQuickReplyRows({
   onOther: (words: string) => void
   /** Answer in the comment box instead, which can attach files: it names this question again. The
    *  only way for a question with no replies; Shift- or Alt-Enter in Other… otherwise. */
-  onAnswerInBox: () => void
+  onAnswerInBox: (words: string) => void
   /** The reply picked before, on a line reopened to change it. */
   current?: string
   /** The Other… field's words, when the caller keeps them across its own changes. */
@@ -104,7 +104,7 @@ export function BotItemQuickReplyRows({
       // Prevented, or the digit lands in the field it just focused.
       event.preventDefault()
       if (replies.length === 0) {
-        onAnswerInBox()
+        onAnswerInBox('')
       } else {
         field.current?.focus()
       }
@@ -168,7 +168,7 @@ export function BotItemQuickReplyRows({
             ROW,
             'text-muted-foreground outline-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring/50'
           )}
-          onClick={onAnswerInBox}
+          onClick={() => onAnswerInBox('')}
         >
           <Key label={String(otherKey)} />
           <span className="min-w-0 flex-1 truncate">
@@ -204,8 +204,10 @@ export function BotItemQuickReplyRows({
               }
               event.preventDefault()
               if (event.shiftKey || event.altKey) {
-                // The box keeps its own draft; these words stay here.
-                onAnswerInBox()
+                // The words go after the box's own draft, which stays.
+                const words = other.trim()
+                setOther('')
+                onAnswerInBox(words)
               } else {
                 sendOther()
               }

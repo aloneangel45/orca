@@ -135,9 +135,10 @@ export function BotItemQuestionStep({
       botItemHeldAnswerIsReply(pick, r.label)
     )
     // Typed words with images, files or skills go back into the box, which keeps them all.
+    // So does any answer to a question without replies, whose answer field is the box.
     if (
-      !reply &&
-      (pick.images.length > 0 || shownPick.files.length > 0 || pick.skills.length > 0)
+      shape.decisions[index]!.replies.length === 0 ||
+      (!reply && (pick.images.length > 0 || shownPick.files.length > 0 || pick.skills.length > 0))
     ) {
       // The shown Other… words are held first; the box takes the answer once that shows, as two
       // writes in one click would race.
@@ -233,9 +234,11 @@ export function BotItemQuestionStep({
               edit ? ownWords(shown, reply.label) : hold(shown, reply.label)
             }
             onOther={(words) => hold(shown, words)}
-            onAnswerInBox={() => {
+            onAnswerInBox={(words) => {
               steps.bind(shown)
-              actions.type()
+              setDraft(shown, '')
+              setReopened(null)
+              actions.type(words)
             }}
             current={picks[shown]?.words}
             other={drafts[shown] ?? ''}
