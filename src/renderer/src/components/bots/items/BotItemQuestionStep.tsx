@@ -25,20 +25,14 @@ import type { BotItemQuestionSteps, BotItemQuickReplyActions } from './use-bot-i
 
 // Half the single-line height: one line reads as a pill, a wrapped label as a rounded rectangle. Any
 // label breaks inside the chip, an unbroken one too.
-export const BOT_ITEM_CHIP =
+const BOT_ITEM_CHIP =
   'min-h-8 w-fit max-w-full rounded-[16px] border border-question-option-border px-3.5 py-1.5 text-left text-[13px] leading-[18px] [overflow-wrap:anywhere]'
 
 const CHIP_ACTION =
   'outline-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring/50'
 
-/** The recommended reply of an open line: the same pill as its siblings, filled; the one the owner
- *  most likely means. */
-export const BOT_ITEM_CHIP_RECOMMENDED =
-  'border-foreground bg-foreground text-background hover:bg-foreground/90'
-
 /** An open question's words: a title, 14 px semibold, over the Markdown's own 13 px. */
-export const BOT_ITEM_OPEN_QUESTION =
-  'font-semibold [&_p]:font-semibold [&>*]:text-sm [&>*]:leading-5'
+const BOT_ITEM_OPEN_QUESTION = 'font-semibold [&_p]:font-semibold [&>*]:text-sm [&>*]:leading-5'
 
 /** A line's pick: solid, with a check. */
 const CHIP_PICKED =
@@ -48,10 +42,7 @@ const CHIP_PICKED =
 const CHIP_OWN_WORDS = 'flex items-center gap-1.5 text-muted-foreground'
 
 /** A chip's tooltip: Recommended on the recommended reply, over the reply's own detail. */
-export function botItemChipTitle(
-  reply: BotItemQuickReply,
-  recommended: string
-): string | undefined {
+function botItemChipTitle(reply: BotItemQuickReply, recommended: string): string | undefined {
   return (
     [reply.recommended ? recommended : null, reply.detail].filter(Boolean).join('\n') || undefined
   )
@@ -59,7 +50,7 @@ export function botItemChipTitle(
 
 /** A reply's words. The recommended one leads with a star and carries Recommended in its name, filled
  *  or not: reopening an answered line keeps the mark on it. */
-export function BotItemChipWords({ reply }: { reply: BotItemQuickReply }): React.JSX.Element {
+function BotItemChipWords({ reply }: { reply: BotItemQuickReply }): React.JSX.Element {
   const t = useTranslate()
   if (!reply.recommended) {
     return <>{reply.label}</>
