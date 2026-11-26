@@ -65,15 +65,14 @@ export function useBotItemCommentBoxHandle(
     ...composerQuoteTarget(composer),
     type: (typed) => void composer.current?.insertTypedText(typed),
     answer: (words) => {
-      if (words) {
-        const current = input()?.value.trim() ?? readNativeChatComposerDraft(scopeKey).text.trim()
-        const next = current ? `${current} ${words} ` : `${words} `
-        setDraft(next)
-        show(next, false)
-      } else {
-        reply.show()
-      }
+      reply.show()
       composer.current?.focus({ caretAtEnd: true, glow: true })
+      if (words) {
+        // Typed in after the box's words, not rewritten, so its picked skills and files stay.
+        const current = input()?.value ?? readNativeChatComposerDraft(scopeKey).text
+        const gap = current && !/\s$/.test(current) ? ' ' : ''
+        void composer.current?.insertTypedText(`${gap}${words} `)
+      }
     },
     fill: (text, plain) => {
       setDraft(`${text} `)
