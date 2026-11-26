@@ -102,7 +102,14 @@ function InboxPreview() {
   return (
     <ul className="px-1.5 pb-2">
       {INBOX_ENTRIES.map((entry) => (
-        <ActivityInboxEntryRow key={entry.key} entry={entry} onOpenThread={noop} />
+        <ActivityInboxEntryRow
+          key={entry.key}
+          entry={entry}
+          // The bot item you opened last, drawn as the selected row.
+          selected={entry.key === 'item-1'}
+          onOpened={noop}
+          onOpenThread={noop}
+        />
       ))}
     </ul>
   )
@@ -120,11 +127,27 @@ function railSetup({ body, activity }: { body: 'workspaces' | 'agents'; activity
       sidebarOpen: true,
       sidebarBody: body,
       activeView: 'terminal' as const,
+      tabsByWorktree: activity
+        ? {
+            'fixture-wt': [
+              {
+                id: 'fixture-tab',
+                ptyId: 'fixture-pty',
+                worktreeId: 'fixture-wt',
+                title: 'claude',
+                customTitle: null,
+                color: null,
+                sortOrder: 0,
+                createdAt: now
+              }
+            ]
+          }
+        : {},
       migrationUnsupportedByPtyId: activity
         ? {
             'fixture-pty': {
               ptyId: 'fixture-pty',
-              paneKey: 'fixture-tab:fixture-leaf',
+              paneKey: 'fixture-tab:00000000-0000-4000-8000-000000000001',
               reason: 'legacy-numeric-pane-key' as const,
               source: 'local' as const,
               updatedAt: now

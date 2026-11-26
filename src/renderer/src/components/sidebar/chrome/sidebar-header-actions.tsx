@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import { FolderPlus, Plus } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { Button } from '@/components/ui/button'
@@ -113,11 +113,28 @@ export function SidebarHeaderActions({
     [onWorkspaceBoardMenuOpenChange]
   )
 
+  useEffect(() => {
+    let changed = false
+    if (agentsViewActive && openMenusRef.current.options) {
+      openMenusRef.current.options = false
+      changed = true
+    }
+    if (inboxShowing && openMenusRef.current.addProject) {
+      openMenusRef.current.addProject = false
+      changed = true
+    }
+    if (changed) {
+      onWorkspaceBoardMenuOpenChange(
+        openMenusRef.current.options || openMenusRef.current.addProject
+      )
+    }
+  }, [agentsViewActive, inboxShowing, onWorkspaceBoardMenuOpenChange])
+
   return (
     <div className="flex shrink-0 items-center gap-1" data-sidebar-header-actions="">
       <div
         ref={activityOptionsTarget}
-        // The inbox adds Mark all read beside its options, so its slot grows with them.
+        // The inbox portals Mark all read into this slot.
         className={
           inboxShowing
             ? 'flex h-6 shrink-0 items-center gap-1'

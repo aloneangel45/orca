@@ -8,6 +8,16 @@ import type { Bot } from '../../../../../shared/bot-types'
 import type { BotItem } from '../../../../../shared/bots/bot-items'
 import { botItemGroupOf, botItemStaleDays } from '../../../../../shared/bots/bot-item-groups'
 import { isLiveAccessRequest, readActivityInboxBots, type ActivityInboxBot } from './activity-inbox'
+import { useAccessRequestExpiryNow } from './use-activity-inbox-dot'
+
+const EMPTY_BOTS: ActivityInboxBot[] = []
+const EMPTY_REQUESTS: HostAccessRequest[] = []
+const NO_BOTS: readonly Bot[] = []
+const NO_HOSTS: readonly never[] = []
+const subscribeToNothing = (): (() => void) => () => {}
+const readEmptyKey = (): string => ''
+const readNoBots = (): readonly Bot[] => NO_BOTS
+const readNoHosts = (): readonly never[] => NO_HOSTS
 
 // A primitive key, so the external-store snapshot is stable between notifications.
 function readBotsNeedingYouKey(): string {
@@ -23,19 +33,26 @@ export type ActivityInboxBotSources = {
 }
 
 /** From what the renderer already holds (no fetch): the bots to read items for, and access requests. */
-export function useActivityInboxBotSources(): ActivityInboxBotSources {
-  const botsKey = useSyncExternalStore(subscribeToBotChanges, readBotsNeedingYouKey)
+export function useActivityInboxBotSources(enabled: boolean): ActivityInboxBotSources {
+  const subscribe = enabled ? subscribeToBotChanges : subscribeToNothing
+  const botsKey = useSyncExternalStore(subscribe, enabled ? readBotsNeedingYouKey : readEmptyKey)
   // The bot list's identity too, so a renamed bot or a changed itemsStale reaches the rows.
-  const allBots = useSyncExternalStore(subscribeToBotChanges, readBots)
-  const liveHosts = useSyncExternalStore(subscribeToBotChanges, readLiveBotHostIds)
-  // oxlint-disable-next-line react-hooks/exhaustive-deps -- botsKey and allBots are what the read depends on.
-  const bots = useMemo(() => readActivityInboxBots(), [botsKey, allBots])
-  const allRequests = useAccessRequests()
-  const requests = useMemo(
-    () => allRequests.filter((request) => isLiveAccessRequest(request)),
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- liveHosts and allBots are what the filter reads.
-    [allRequests, liveHosts, allBots]
+  const allBots = useSyncExternalStore(subscribe, enabled ? readBots : readNoBots)
+  const liveHosts = useSyncExternalStore(subscribe, enabled ? readLiveBotHostIds : readNoHosts)
+  const bots = useMemo(
+    () => (enabled && botsKey ? readActivityInboxBots(allBots) : EMPTY_BOTS),
+    [enabled, botsKey, allBots]
   )
+  const allRequests = useAccessRequests()
+  const accessNow = useAccessRequestExpiryNow(allRequests, enabled)
+  const requests = useMemo(() => {
+    if (!enabled || allRequests.length === 0) {
+      return EMPTY_REQUESTS
+    }
+    return allRequests.filter((request) =>
+      isLiveAccessRequest(request, accessNow, allBots, liveHosts)
+    )
+  }, [enabled, allRequests, liveHosts, allBots, accessNow])
   return { bots, requests }
 }
 
@@ -48,25 +65,32 @@ export type BotItemsNeedingYou = { bot: Bot; items: BotItem[] | null }
  */
 export function ActivityInboxBotItemsReader({
   bot,
+  count,
   onItems
 }: {
   bot: Bot
+  /** Published Needs you count; changing (e.g. an item going stale) re-runs the staleness filter. */
+  count: number
   onItems: (key: string, value: BotItemsNeedingYou | undefined) => void
 }): null {
-  const { read, state } = useBotItems(bot)
+  const { read, state, landed, refreshFailed } = useBotItems(bot)
   const key = botRefKey(bot)
   useEffect(() => {
     // Grouped as the list lands (staleness reads the clock), not during render.
     const staleDays = botItemStaleDays(bot.itemsStale)
     const now = Date.now()
-    // A read that failed with nothing kept settles as no rows, so the inbox never waits on it forever.
-    const items = read
+    const needsYou = read
       ? read.items.filter((item) => botItemGroupOf(item, staleDays, now) === 'needs_you')
-      : state === 'failed'
-        ? []
-        : null
+      : null
+    // A kept list with 0 items predates the new count: wait for the fresh read to land (or fail) before settling empty.
+    const items =
+      needsYou && needsYou.length > 0
+        ? needsYou
+        : landed || refreshFailed || state === 'failed'
+          ? (needsYou ?? [])
+          : null
     onItems(key, { bot, items })
-  }, [key, bot, read, state, onItems])
+  }, [key, bot, count, read, state, landed, refreshFailed, onItems])
   useEffect(() => () => onItems(key, undefined), [key, onItems])
   return null
 }

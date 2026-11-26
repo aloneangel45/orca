@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { AppState } from '@/store/types'
 import type { AgentStatusEntry } from '../../../../../shared/agent-status/contracts/agent-status-types'
+import type { HostAccessRequest } from '@/lib/bot-access-requests'
 import type { AgentPaneThread } from '../threads/activity-thread-types'
-import { activityInboxKind, hasActivityInboxAgentAttention } from './activity-inbox'
+import {
+  activityInboxKind,
+  hasActivityInboxAgentAttention,
+  nextAccessRequestExpiry
+} from './activity-inbox'
 
 const NOW = 1_000_000
 
@@ -24,19 +29,30 @@ function source(
   entries: Record<string, AgentStatusEntry>,
   {
     acked = {},
-    rows = Object.keys(entries)
-  }: { acked?: Record<string, number>; rows?: string[] } = {}
+    rows = Object.keys(entries),
+    rowEntries = {},
+    runtimeOrchestration = {}
+  }: {
+    acked?: Record<string, number>
+    rows?: string[]
+    rowEntries?: Record<string, AgentStatusEntry>
+    runtimeOrchestration?: AppState['runtimeAgentOrchestrationByPaneKey']
+  } = {}
 ): Parameters<typeof hasActivityInboxAgentAttention>[0] {
   const map = new Map(Object.entries(entries))
   const statuses = Object.assign(map, {
-    projection: { rowWorktree: (paneKey: string) => (rows.includes(paneKey) ? 'wt' : null) }
+    projection: {
+      rowWorktree: (paneKey: string) => (rows.includes(paneKey) ? 'wt' : null),
+      row: (paneKey: string) => (paneKey in rowEntries ? { entry: rowEntries[paneKey] } : undefined)
+    }
   })
-  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the scan reads only entries() and projection.rowWorktree.
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the scan reads only entries(), projection.rowWorktree and projection.row.
   return {
     agentStatusByPaneKey: statuses as unknown as AppState['agentStatusByPaneKey'],
     migrationUnsupportedByPtyId: {},
     acknowledgedAgentsByPaneKey: acked,
-    activityClearedAtByPaneKey: {}
+    activityClearedAtByPaneKey: {},
+    runtimeAgentOrchestrationByPaneKey: runtimeOrchestration
   }
 }
 
@@ -76,8 +92,19 @@ describe('hasActivityInboxAgentAttention', () => {
   })
 
   it('ignores a dispatched child worker', () => {
-    const child = entry({ orchestration: { taskId: 't', dispatchId: 'd' } })
+    const orchestration = { taskId: 't', dispatchId: 'd' }
+    const child = entry({ orchestration })
     expect(hasActivityInboxAgentAttention(source({ a: child }), NOW)).toBe(false)
+    // Runtime and remote orchestration contexts live outside the raw entry.
+    expect(
+      hasActivityInboxAgentAttention(
+        source({ a: entry() }, { runtimeOrchestration: { a: orchestration } }),
+        NOW
+      )
+    ).toBe(false)
+    expect(
+      hasActivityInboxAgentAttention(source({ a: entry() }, { rowEntries: { a: child } }), NOW)
+    ).toBe(false)
   })
 
   it('stays dark for a cancelled turn, which the list shows as Interrupted and never lists', () => {
@@ -171,5 +198,17 @@ describe('activityInboxKind', () => {
 
   it('lists a blocked migration as an ask', () => {
     expect(activityInboxKind(thread({ migrationUnsupportedPtyId: 'pty' }))).toBe('ask')
+  })
+})
+
+describe('nextAccessRequestExpiry', () => {
+  const req = (expiresAt: number) => ({ expiresAt }) as HostAccessRequest
+
+  it('returns the soonest future expiry and ignores already-expired requests', () => {
+    expect(nextAccessRequestExpiry([], NOW)).toBeNull()
+    expect(nextAccessRequestExpiry([req(NOW - 10), req(NOW)], NOW)).toBeNull()
+    expect(nextAccessRequestExpiry([req(NOW - 5), req(NOW + 500), req(NOW + 100)], NOW)).toBe(
+      NOW + 100
+    )
   })
 })

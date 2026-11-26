@@ -4,6 +4,7 @@ import type { AppState } from '@/store/types'
 import type { AgentStatusEntry } from '../../../../../shared/agent-status/contracts/agent-status-types'
 import type { Bot } from '../../../../../shared/bot-types'
 import { migrationUnsupportedToAgentStatusEntry } from '../../../../../shared/agent-status/presentation/migration-unsupported-agent-entry'
+import type { ExecutionHostId } from '../../../../../shared/execution-host/execution-host'
 import { readBotHostState, readBotItemsNeedingOwner, readBots } from '@/lib/bot-catalog-snapshot'
 import type { HostAccessRequest } from '@/lib/bot-access-requests'
 import {
@@ -81,21 +82,33 @@ type AgentAttentionSource = Pick<
   | 'migrationUnsupportedByPtyId'
   | 'acknowledgedAgentsByPaneKey'
   | 'activityClearedAtByPaneKey'
->
+> & {
+  runtimeAgentOrchestrationByPaneKey?: AppState['runtimeAgentOrchestrationByPaneKey']
+}
 
 /** Whether any agent waits on you or has an outcome you haven't read; stops at the first. */
 export function hasActivityInboxAgentAttention(source: AgentAttentionSource, now: number): boolean {
   const { projection } = source.agentStatusByPaneKey
-  for (const unsupported of Object.values(source.migrationUnsupportedByPtyId)) {
+  for (const key in source.migrationUnsupportedByPtyId) {
+    if (!Object.hasOwn(source.migrationUnsupportedByPtyId, key)) {
+      continue
+    }
     // Only a pane with a workspace row has an Activity row to show it.
-    const paneKey = migrationUnsupportedToAgentStatusEntry(unsupported)?.paneKey
+    const paneKey = migrationUnsupportedToAgentStatusEntry(
+      source.migrationUnsupportedByPtyId[key]
+    )?.paneKey
     if (paneKey && projection.rowWorktree(paneKey)) {
       return true
     }
   }
   for (const [paneKey, entry] of source.agentStatusByPaneKey.entries()) {
     // Panes with no workspace row have no Activity row to clear; child workers are never listed.
-    if (!projection.rowWorktree(paneKey) || isChildWorkerEntry(entry)) {
+    if (
+      !projection.rowWorktree(paneKey) ||
+      isChildWorkerEntry(entry) ||
+      isChildWorkerEntry(projection.row(paneKey)?.entry) ||
+      source.runtimeAgentOrchestrationByPaneKey?.[paneKey] !== undefined
+    ) {
       continue
     }
     const mutedAt = Math.max(
@@ -120,9 +133,9 @@ function botNeedsYou(bot: Bot): number {
 }
 
 /** Bots with tasks needing you, from counts the bot list already holds (no fetch). */
-export function readActivityInboxBots(): ActivityInboxBot[] {
+export function readActivityInboxBots(bots: readonly Bot[] = readBots()): ActivityInboxBot[] {
   const result: ActivityInboxBot[] = []
-  for (const bot of readBots()) {
+  for (const bot of bots) {
     const count = botNeedsYou(bot)
     if (count > 0) {
       result.push({ bot, count })
@@ -139,10 +152,32 @@ export function hasActivityInboxBotAttention(): boolean {
  * A request you can still answer: its host is live (the store keeps a disconnected host's), its bot is one this
  * window lists (as the request toast requires), and it hasn't expired.
  */
-export function isLiveAccessRequest(request: HostAccessRequest, now: number = Date.now()): boolean {
+export function isLiveAccessRequest(
+  request: HostAccessRequest,
+  now: number = Date.now(),
+  bots: readonly Bot[] = readBots(),
+  liveHosts?: readonly ExecutionHostId[]
+): boolean {
+  const hostLive = liveHosts
+    ? liveHosts.includes(request.hostId)
+    : readBotHostState(request.hostId) === 'live'
   return (
-    readBotHostState(request.hostId) === 'live' &&
+    hostLive &&
     request.expiresAt > now &&
-    readBots().some((bot) => bot.id === request.botId && bot.hostId === request.hostId)
+    bots.some((bot) => bot.id === request.botId && bot.hostId === request.hostId)
   )
+}
+
+/** Soonest future expiry across `requests`, or null when none are still live. */
+export function nextAccessRequestExpiry(
+  requests: readonly HostAccessRequest[],
+  now: number
+): number | null {
+  let soonest: number | null = null
+  for (const request of requests) {
+    if (request.expiresAt > now && (soonest === null || request.expiresAt < soonest)) {
+      soonest = request.expiresAt
+    }
+  }
+  return soonest
 }

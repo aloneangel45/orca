@@ -26,7 +26,7 @@ const REPO = {
 
 type ThreadSpec = {
   id: string
-  title: string
+  paneTitle: string
   preview: string
   agent: AgentType
   state: AgentStatusState
@@ -53,7 +53,7 @@ function thread(spec: ThreadSpec): AgentPaneThread {
   const live = spec.state === 'waiting' || spec.state === 'blocked'
   return {
     paneKey,
-    paneTitle: spec.title,
+    paneTitle: spec.paneTitle,
     worktree: {
       id: `inbox-wt-${spec.id}`,
       repoId: REPO.id,
@@ -100,7 +100,7 @@ function thread(spec: ThreadSpec): AgentPaneThread {
 export const THREADS = [
   thread({
     id: 'relay',
-    title: 'Fix the relay reconnect timeout',
+    paneTitle: 'Fix the relay reconnect timeout',
     preview: 'Allow `pnpm test:e2e --update-snapshots`?',
     agent: 'claude',
     state: 'blocked',
@@ -110,7 +110,7 @@ export const THREADS = [
   }),
   thread({
     id: 'mobile',
-    title: 'Mobile tabs package',
+    paneTitle: 'Mobile tabs package',
     preview: 'Which test runner should the mobile package use: vitest (matches web) or jest?',
     agent: 'codex',
     state: 'waiting',
@@ -120,7 +120,7 @@ export const THREADS = [
   }),
   thread({
     id: 'resize',
-    title: 'Flaky terminal resize test',
+    paneTitle: 'Flaky terminal resize test',
     preview: 'Fixed the flaky resize test and added a regression case.',
     agent: 'claude',
     state: 'done',
@@ -130,7 +130,7 @@ export const THREADS = [
   }),
   thread({
     id: 'triage-chat',
-    title: 'Triage today’s new Linear tickets',
+    paneTitle: 'Triage today’s new Linear tickets',
     preview:
       'Tagged 14 new tickets and moved 3 to Needs triage. Two look like the same Windows relay bug.',
     agent: 'claude',
@@ -142,7 +142,7 @@ export const THREADS = [
   }),
   thread({
     id: 'lockfile',
-    title: 'Audit the lockfile',
+    paneTitle: 'Audit the lockfile',
     preview: 'Context window ran out while reading pnpm-lock.yaml.',
     agent: 'codex',
     state: 'done',
@@ -153,7 +153,7 @@ export const THREADS = [
   }),
   thread({
     id: 'copy',
-    title: 'Settings copy to sentence case',
+    paneTitle: 'Settings copy to sentence case',
     preview: 'Renamed the settings sections to sentence case across 12 files.',
     agent: 'gemini',
     state: 'done',

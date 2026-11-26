@@ -258,7 +258,7 @@ function Sidebar({
         <ActivityThreadCollapseContext.Provider value={agentsCollapseState}>
           <SidebarActivityBody
             inbox={activityInbox}
-            active={sidebarBody === 'agents'}
+            active={sidebarBody === 'agents' && !hiddenByRailPage}
             readFilter={agentReadFilter}
             setReadFilter={setAgentReadFilter}
             groupBy={agentGroupBy}

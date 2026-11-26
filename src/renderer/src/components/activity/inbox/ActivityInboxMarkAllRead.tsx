@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTranslate } from '@/i18n/use-translate'
 
-/** The inbox header's one-click Mark all read; the options menu keeps its own copy. */
+/** The inbox header's one-click Mark all read. */
 export function ActivityInboxMarkAllRead({
   disabled,
   onMarkAllRead
