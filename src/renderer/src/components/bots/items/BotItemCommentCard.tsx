@@ -106,6 +106,8 @@ export function BotItemCommentCard({
     return answer ? botItemAnswerWords(shape, index, answer.data) : (sent?.[index] ?? null)
   })
   const answeredCount = lineWords.filter(Boolean).length
+  // Answered by comments the host has: a failed send's picks still show on their lines, but aren't these.
+  const postedCount = shape.decisions.filter((_, index) => entry.answers?.[index]).length
   const steps = quickReplies?.steps?.askId === event.id ? quickReplies.steps : null
   // Answered: one question once it has its answer; several once Send posted (or they all have one).
   const done =
@@ -114,14 +116,14 @@ export function BotItemCommentCard({
       : total > 1 &&
         (waiting
           ? // A send that failed keeps its lines closed but isn't sent: its Retry is in the Activity.
-            steps !== null && steps.lines.length === 0 && (steps.sending || answeredCount === total)
+            steps !== null && steps.lines.length === 0 && (steps.sending || postedCount === total)
           : answeredCount === total || (entry.ended === 'skipped' && answeredCount > 0))
   const folded = done && !unfolded
   const body = useRef<HTMLDivElement | null>(null)
   const summary = useRef<HTMLButtonElement | null>(null)
   const article = useRef<HTMLDivElement | null>(null)
   // Folding hides what had focus (Send, a reply row, Other…): focus goes to the summary instead, so
-  // the pane's keys keep working.
+  // the pane's keys keep working. A send that fails unfolds it again: focus goes to the card.
   const wasFolded = useRef(folded)
   useLayoutEffect(() => {
     const active = document.activeElement
@@ -132,6 +134,8 @@ export function BotItemCommentCard({
       (active === document.body || (active && body.current?.contains(active)))
     ) {
       summary.current?.focus({ preventScroll: true })
+    } else if (!folded && wasFolded.current && active === document.body) {
+      article.current?.focus({ preventScroll: true })
     }
     wasFolded.current = folded
   }, [folded])

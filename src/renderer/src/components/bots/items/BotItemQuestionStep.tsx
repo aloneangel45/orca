@@ -143,7 +143,7 @@ export function BotItemQuestionStep({
       !reply &&
       (pick.images.length > 0 || shownPick.files.length > 0 || pick.skills.length > 0)
     ) {
-      holdDraft()
+      // Its Other… words stay in place, not held: two writes in one click would race.
       ownWords(index, pick)
       return
     }
