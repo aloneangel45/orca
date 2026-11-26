@@ -113,11 +113,13 @@ export function BotItemCommentCard({
       ? lineWords[0] !== null
       : total > 1 &&
         (waiting
-          ? steps !== null && steps.lines.length === 0
+          ? // A send that failed keeps its lines closed but isn't sent: its Retry is in the Activity.
+            steps !== null && steps.lines.length === 0 && (steps.sending || answeredCount === total)
           : answeredCount === total || (entry.ended === 'skipped' && answeredCount > 0))
   const folded = done && !unfolded
   const body = useRef<HTMLDivElement | null>(null)
   const summary = useRef<HTMLButtonElement | null>(null)
+  const article = useRef<HTMLDivElement | null>(null)
   // Folding hides what had focus (Send, a reply row, Other…): focus goes to the summary instead, so
   // the pane's keys keep working.
   useLayoutEffect(() => {
@@ -143,6 +145,7 @@ export function BotItemCommentCard({
     // column so the avatar and time sit on the event rows' glyph and time edges.
     <div className="relative -mx-2 my-1 rounded-[10px] bg-sidebar">
       <div
+        ref={article}
         {...{ [BOT_ITEM_COMMENT_ATTRIBUTE]: event.id }}
         tabIndex={-1}
         role="article"
@@ -198,7 +201,11 @@ export function BotItemCommentCard({
             title={total === 1 ? `${shape.decisions[0]!.question}: ${lineWords[0]}` : undefined}
             className="group/fold flex w-full min-w-0 items-center gap-1 rounded-sm text-left text-[13px] leading-[19px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
             ref={summary}
-            onClick={() => setUnfolded(true)}
+            onClick={() => {
+              setUnfolded(true)
+              // The summary goes; focus stays in the pane, on the card it opened.
+              article.current?.focus({ preventScroll: true })
+            }}
           >
             {total === 1 ? (
               <>

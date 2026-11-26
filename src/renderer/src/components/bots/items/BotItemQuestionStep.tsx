@@ -107,13 +107,31 @@ export function BotItemQuestionStep({
   }, [steps])
   const setDraft = (index: number, words: string): void =>
     setDrafts((previous) => ({ ...previous, [index]: words }))
+  const isReply = (index: number, words: string): boolean =>
+    shape.decisions[index]!.replies.some((reply) => reply.label === words)
   const hold = (index: number, words: string): void => {
     const again = botItemHeldAnswerIsReply(picks[index], words)
-    // A reply picked again clears it: the line stays open, unanswered.
-    steps.pick(index, words)
+    // A reply picked again clears it (the line stays open, unanswered); the same typed words keep it.
+    const clearing = again && isReply(index, words)
+    if (!again || clearing) {
+      steps.pick(index, words)
+    }
     setDraft(index, '')
-    setReopened(again ? index : null)
-    moveFocus.current = !again
+    setReopened(clearing ? index : null)
+    moveFocus.current = !clearing
+  }
+  /** The shown line's Other… words, held as its answer before another line shows or Send posts, so
+   *  only the shown line ever has words not held. True when they were. */
+  const holdDraft = (): boolean => {
+    if (shown === undefined || !draft) {
+      return false
+    }
+    setDraft(shown, '')
+    if (botItemHeldAnswerIsReply(picks[shown], draft)) {
+      return false
+    }
+    steps.pick(shown, draft)
+    return true
   }
   const change = (index: number, pick: BotItemHeldAnswer): void => {
     const shownPick = botItemShownAnswer(pick)
@@ -125,9 +143,11 @@ export function BotItemQuestionStep({
       !reply &&
       (pick.images.length > 0 || shownPick.files.length > 0 || pick.skills.length > 0)
     ) {
+      holdDraft()
       ownWords(index, pick)
       return
     }
+    holdDraft()
     if (!reply) {
       setDraft(index, pick.words)
     }
@@ -135,9 +155,8 @@ export function BotItemQuestionStep({
     moveFocus.current = true
   }
   const send = (): void => {
-    if (shown !== undefined && draft) {
-      steps.pick(shown, draft)
-      setDraft(shown, '')
+    if (holdDraft()) {
+      // Sent once the hold shows in the picks.
       sendAfterHold.current = true
       return
     }
