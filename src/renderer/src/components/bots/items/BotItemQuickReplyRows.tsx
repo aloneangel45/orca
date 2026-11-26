@@ -1,19 +1,14 @@
-// The open question of a one-question ask: one row per quick reply, the recommended one first with its
-// label and a light tint, then an Other… field. Keys 1–n pick a row and n+1 goes to the field while
+// An open question's answers: one row per quick reply, the recommended one first with its label and a
+// light tint, then an Other… field. Keys 1–n pick a row and n+1 goes to the field while
 // the item's pane has focus outside any text field; Enter in an empty field picks the recommended reply.
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { Check } from 'lucide-react'
 import { ShortcutKeyCombo } from '@/components/ui/ShortcutKeyCombo'
 import { useTranslate } from '@/i18n/use-translate'
 import { cn } from '@/lib/class-names'
 import { isEditableTarget } from '@/lib/text-input/focus/editable-target'
 import { isImeOwnedKeyboardEvent } from '@/lib/text-input/ime/ime-composition-keyboard-event'
-import {
-  botItemQuickReplyText,
-  type BotItemDecision,
-  type BotItemQuestionShape,
-  type BotItemQuickReply
-} from '../../../../../shared/bots/bot-item-ask'
-import type { BotItemQuickReplyActions } from './use-bot-item-question-steps'
+import type { BotItemQuickReply } from '../../../../../shared/bots/bot-item-ask'
 import { BOT_ITEM_CHOICES_ATTRIBUTE } from './bot-item-comment-typing'
 
 // Bleeds 4px past the column so the key column stays on the body's edge and the tint clears the card's hairline.
@@ -37,27 +32,36 @@ function orderedReplies(replies: readonly BotItemQuickReply[]): BotItemQuickRepl
 }
 
 export function BotItemQuickReplyRows({
-  shape,
-  decision,
-  actions
+  question,
+  quickReplies,
+  onPick,
+  onOther,
+  current,
+  rowsRef
 }: {
-  shape: BotItemQuestionShape
-  decision: BotItemDecision
-  actions: BotItemQuickReplyActions
+  question: string
+  quickReplies: readonly BotItemQuickReply[]
+  /** `edit`: Alt- or Shift-click, the reply's words into the comment box to add to first. */
+  onPick: (reply: BotItemQuickReply, edit: boolean) => void
+  onOther: (words: string) => void
+  /** The reply picked before, on a line reopened to change it. */
+  current?: string
+  rowsRef?: React.RefObject<HTMLDivElement | null>
 }): React.JSX.Element {
   const t = useTranslate()
   const [other, setOther] = useState('')
-  const rows = useRef<HTMLDivElement | null>(null)
+  const ownRows = useRef<HTMLDivElement | null>(null)
+  const rows = rowsRef ?? ownRows
   const field = useRef<HTMLInputElement | null>(null)
-  const replies = orderedReplies(decision.replies)
+  const replies = orderedReplies(quickReplies)
   const recommended = replies.find((reply) => reply.recommended) ?? null
   const otherKey = replies.length + 1
-  const pick = (reply: BotItemQuickReply): void =>
-    actions.send(botItemQuickReplyText(shape, decision, reply))
+  const pick = (reply: BotItemQuickReply): void => onPick(reply, false)
   const sendOther = (): void => {
     const words = other.trim()
     if (words) {
-      actions.send(words)
+      setOther('')
+      onOther(words)
     } else if (recommended) {
       pick(recommended)
     }
@@ -101,20 +105,21 @@ export function BotItemQuickReplyRows({
     const listener = (event: KeyboardEvent): void => onPaneKey(event)
     scope.addEventListener('keydown', listener)
     return () => scope.removeEventListener('keydown', listener)
-  }, [])
+  }, [rows])
 
   return (
     <div
       ref={rows}
       {...{ [BOT_ITEM_CHOICES_ATTRIBUTE]: otherKey }}
       role="group"
-      aria-label={decision.question}
+      aria-label={question}
       className="mt-1.5 flex flex-col"
     >
       {replies.map((reply, index) => (
         <button
           key={reply.label}
           type="button"
+          aria-pressed={current === undefined ? undefined : reply.label === current}
           title={reply.detail ? `${reply.label}\n${reply.detail}` : reply.label}
           className={cn(
             ROW,
@@ -123,17 +128,13 @@ export function BotItemQuickReplyRows({
               ? 'bg-theme-accent/8 hover:bg-theme-accent/14'
               : 'hover:bg-foreground/5'
           )}
-          onClick={(event) => {
-            const text = botItemQuickReplyText(shape, decision, reply)
-            if (event.altKey || event.shiftKey) {
-              actions.edit(text)
-            } else {
-              actions.send(text)
-            }
-          }}
+          onClick={(event) => onPick(reply, event.altKey || event.shiftKey)}
         >
           <Key label={String(index + 1)} />
           <span className="min-w-0 flex-1 truncate text-foreground">{reply.label}</span>
+          {reply.label === current ? (
+            <Check aria-hidden className="size-3.5 shrink-0 text-theme-accent" />
+          ) : null}
           {reply.recommended ? (
             <span className="shrink-0 text-xs text-theme-accent">
               {t('bots.items.ask.recommended', 'Recommended')}

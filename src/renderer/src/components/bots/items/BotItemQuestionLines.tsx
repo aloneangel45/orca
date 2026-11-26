@@ -6,7 +6,10 @@
 // and the answer's own card is not drawn again.
 import { useTranslate } from '@/i18n/use-translate'
 import { cn } from '@/lib/class-names'
-import type { BotItemQuestionShape } from '../../../../../shared/bots/bot-item-ask'
+import {
+  botItemQuickReplyText,
+  type BotItemQuestionShape
+} from '../../../../../shared/bots/bot-item-ask'
 import {
   botItemAnswerWords,
   botItemUnsentAnswers
@@ -135,7 +138,19 @@ export function BotItemQuestionLines({
                 <BotItemMarkdown text={decision.question} />
               </div>
               {open && actions && decision.replies.length > 0 ? (
-                <BotItemQuickReplyRows shape={shape} decision={decision} actions={actions} />
+                <BotItemQuickReplyRows
+                  question={decision.question}
+                  quickReplies={decision.replies}
+                  onPick={(reply, edit) => {
+                    const text = botItemQuickReplyText(shape, decision, reply)
+                    if (edit) {
+                      actions.edit(text)
+                    } else {
+                      actions.send(text)
+                    }
+                  }}
+                  onOther={actions.send}
+                />
               ) : null}
             </div>
           )

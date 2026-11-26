@@ -98,21 +98,30 @@ export function BotItemCommentCard({
   const [unfolded, setUnfolded] = useState(false)
   const images = botItemCommentImages(event.data)
   const shape = botItemQuestionShape(event.data)
-  const oneQuestion = shape.decisions.length === 1
-  const answer = entry.answers?.[0]
-  const answeredWith = !oneQuestion
-    ? null
-    : answer
-      ? botItemAnswerWords(shape, 0, answer.data)
-      : (quickReplies?.sent?.get(event.id)?.[0] ?? null)
-  const folded = answeredWith !== null && !unfolded
-  // The open one-question ask with reply rows: its context cut short over them.
+  const total = shape.decisions.length
+  const sent = quickReplies?.sent?.get(event.id)
+  // Per line, its answer: a comment's, or a send's on its way.
+  const lineWords = shape.decisions.map((_, index) => {
+    const answer = entry.answers?.[index]
+    return answer ? botItemAnswerWords(shape, index, answer.data) : (sent?.[index] ?? null)
+  })
+  const answeredCount = lineWords.filter(Boolean).length
+  const steps = quickReplies?.steps?.askId === event.id ? quickReplies.steps : null
+  // Answered: one question once it has its answer; several once Send posted (or they all have one).
+  const done =
+    total === 1
+      ? lineWords[0] !== null
+      : total > 1 &&
+        (waiting
+          ? steps !== null && steps.lines.length === 0
+          : answeredCount === total || (entry.ended === 'skipped' && answeredCount > 0))
+  const folded = done && !unfolded
+  // The open ask with reply rows: its context cut short over them.
   const rows =
     waiting &&
     quickReplies !== undefined &&
-    oneQuestion &&
-    !answeredWith &&
-    shape.decisions[0]!.replies.length > 0
+    !done &&
+    (total === 1 ? shape.decisions[0]!.replies.length > 0 : steps !== null)
   // Its images show after the words, so the [Image #N] its send wrote go, as in chat's sent messages.
   // Its files show as links after them, so their `@path`s go from the words.
   const { words } = botItemCommentFiles(
@@ -180,12 +189,23 @@ export function BotItemCommentCard({
           <button
             type="button"
             aria-expanded={false}
-            title={shape.decisions[0]!.question}
+            title={total === 1 ? shape.decisions[0]!.question : undefined}
             className="group/fold flex w-full min-w-0 items-center gap-1.5 rounded-sm pl-7 text-left text-[13px] leading-[19px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
             onClick={() => setUnfolded(true)}
           >
-            <span className="shrink-0">{t('bots.items.ask.answered', 'Answered')}</span>
-            <span className="min-w-0 truncate font-medium text-foreground">{answeredWith}</span>
+            {total === 1 ? (
+              <>
+                <span className="shrink-0">{t('bots.items.ask.answered', 'Answered')}</span>
+                <span className="min-w-0 truncate font-medium text-foreground">{lineWords[0]}</span>
+              </>
+            ) : (
+              <span className="min-w-0 truncate">
+                {t('bots.items.ask.sentCount', 'Sent {{count}} of {{total}}', {
+                  count: answeredCount,
+                  total
+                })}
+              </span>
+            )}
             <ChevronRight className="size-3.5 shrink-0 opacity-0 group-hover/fold:opacity-100 group-focus-visible/fold:opacity-100" />
           </button>
         ) : null}
